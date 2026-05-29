@@ -1,0 +1,134 @@
+=======================================================================
+CHI TIẾT TỪNG FILE
+=======================================================================
+
+------------------
+data_loader.py
+------------------
+Tổng quan luồng hoạt động:
+1.Kiểm tra dữ liệu
+   * Nếu thư mục `./data/raw` chưa tồn tại thì code sẽ tự tải bộ dữ liệu MIT-BIH về máy.
+   * Nếu đã có thì dùng luôn dữ liệu cũ.
+
+2. Lấy danh sách các bản ghi ECG
+   * Đọc các file `.dat` trong thư mục dữ liệu.
+   * Mỗi bản ghi tương ứng với một bệnh nhân/đoạn ECG.
+
+3. Loại bỏ các bản ghi không phù hợp
+   * Bỏ record `102` và `104` vì không có kênh tín hiệu `MLII`.
+
+4. Đọc dữ liệu từng bản ghi
+   * Dùng `wfdb.rdrecord()` để đọc tín hiệu ECG.
+   * Dùng `wfdb.rdann()` để đọc annotation (nhãn nhịp tim).
+
+5. Chỉ lấy kênh MLII
+   * Trong nhiều kênh ECG, code chỉ lấy tín hiệu từ kênh `MLII` vì đây là kênh phổ biến nhất để phân tích nhịp tim.
+
+6. Lưu dữ liệu
+   * `all_signals`: chứa tín hiệu ECG.
+   * `all_labels`: chứa annotation/nhãn nhịp tim.
+   * `all_record_ids`: chứa ID của từng record.
+
+7. Trả kết quả
+   * Hàm trả về toàn bộ tín hiệu ECG, nhãn và ID record để phục vụ bước tiền xử lý hoặc huấn luyện AI sau này.
+
+-----------------
+preprocess.py
+-----------------
+Downsample tín hiệu ECG từ 360Hz xuống 100Hz.
+Đồng bộ lại annotation sau khi giảm tần số lấy mẫu.
+Chia tín hiệu ECG thành các cửa sổ nhỏ bằng kỹ thuật sliding window.
+Gán nhãn bình thường/bất thường cho từng window theo chuẩn AAMI.
+Chuẩn hóa dữ liệu và chuyển về định dạng phù hợp cho CNN.
+Thực hiện data augmentation trên tập train để tăng độ đa dạng dữ liệu và giảm mất cân bằng giữa các lớp.
+
+--------------------
+model.py
+--------------------
+CNN (Conv1D) để trích xuất đặc trưng từ tín hiệu ECG như sóng P, QRS, T.
+Batch Normalization + MaxPooling giúp ổn định dữ liệu và giảm kích thước đặc trưng.
+LSTM để học mối quan hệ theo thời gian giữa các nhịp tim liên tiếp.
+Dropout giúp giảm overfitting trong quá trình huấn luyện.
+Dense + Sigmoid dùng để đưa ra kết quả phân loại nhị phân:
+0: nhịp tim bình thường
+1: nhịp tim bất thường
+
+
+
+
+
+
+
+
+
+
+
+
+========================================================================
+MÔ TẢ QUÁ TRÌNH, LUỒNG VÀ THỨ TỰ HOẠT ĐỘNG CỦA CÁC FILE TRONG THƯ MỤC "AI"
+========================================================================
+
+Hệ thống AI này được chia thành 2 luồng hoạt động chính biệt lập với nhau:
+1. Luồng Huấn Luyện (Training Flow) - Chỉ chạy một lần bởi lập trình viên để tạo ra mô hình AI.
+2. Luồng Suy Diễn/Dự Đoán (Inference Flow) - Chạy liên tục trong môi trường thực tế, được gọi bởi Backend Node.js.
+
+------------------------------------------------------------------------
+PHẦN 1: LUỒNG HUẤN LUYỆN (TRAINING FLOW)
+------------------------------------------------------------------------
+Đây là quá trình "dạy học" cho AI. Thứ tự các file được gọi và thực thi khi bạn chạy tệp `ai/src/train.py`:
+
+1. Khởi động (ai/src/train.py): 
+   Là kịch bản chính điều phối toàn bộ quá trình huấn luyện.
+
+2. Tải Dữ liệu (ai/src/data_loader.py): 
+   `train.py` gọi hàm từ file này để đọc các file dữ liệu điện tâm đồ thô (.dat, .hea, .atr) từ thư mục `ai/data/raw/`. Nó sẽ lọc và chỉ trích xuất tín hiệu kênh MLII chuẩn nhất.
+
+3. Tiền Xử Lý (ai/src/preprocess.py): 
+   Dữ liệu sau khi tải sẽ được chuyển cho file này xử lý. Các công đoạn gồm:
+   - Giảm tần số lấy mẫu (Downsample).
+   - Cắt tín hiệu dài thành các đoạn nhỏ (Windowing - mỗi đoạn 5 giây, 500 mẫu).
+   - Phân nhãn (bình thường/bất thường) cho từng đoạn.
+   - Tăng cường dữ liệu (Augmentation - bơm thêm nhiễu để AI học không bị rập khuôn).
+
+4. Tạo Kiến Trúc Não Bộ (ai/src/model.py): 
+   Sau khi dữ liệu đã sẵn sàng, `train.py` gọi hàm từ `model.py` để định nghĩa kiến trúc mạng học sâu lai ghép CNN-LSTM (CNN để trích xuất đặc trưng không gian, LSTM để theo dõi chuỗi thời gian).
+
+5. Huấn luyện & Đánh giá (ai/src/train.py): 
+   Bắt đầu đưa dữ liệu đã tiền xử lý vào mô hình CNN-LSTM để học. Sau khi học xong, tiến hành làm "bài kiểm tra" (Test) để đo lường độ nhạy (Recall), độ chính xác.
+   -> (KẾT QUẢ 1): Tự động lưu biểu đồ đánh giá (Confusion Matrix, ROC Curve) vào thư mục `ai/reports/`.
+   -> (KẾT QUẢ 2): Trích xuất bộ "não" thông minh nhất lưu lại dưới dạng file trọng số tại `ai/models/best_ecg_model.keras`. Lúc này quá trình Training kết thúc!
+
+------------------------------------------------------------------------
+PHẦN 2: LUỒNG SUY DIỄN THỰC TẾ (INFERENCE FLOW)
+------------------------------------------------------------------------
+Đây là luồng hoạt động liên tục khi hệ thống web/app được đưa vào sử dụng.
+
+1. Nhận lệnh từ Backend (backend/utils/aiBridge.js):
+   Hệ thống Node.js nhận dữ liệu ECG (thường từ cảm biến ESP32 của người dùng) lưu thành file CSV. Sau đó, Node.js tạo một tiến trình gọi thực thi script Python dự đoán.
+
+2. Bắt đầu Suy Diễn (ai/scripts/predict.py):
+   File này chính thức được chạy. Nó thực hiện chuỗi lệnh:
+   - Mở file CSV mà Node.js truyền đường dẫn vào.
+   
+3. Tiền Xử Lý Đoạn Ngắn (ai/src/preprocess.py):
+   `predict.py` mượn lại các hàm chuẩn hóa và cắt đoạn (Windowing) từ file `preprocess.py` để biến tín hiệu thô thành dạng ma trận chuẩn 500x1 mà mô hình yêu cầu.
+
+4. Nạp Trí Nhớ (ai/models/best_ecg_model.keras):
+   Mô hình đã được train từ Phần 1 sẽ được tải lên bộ nhớ (Load Model).
+
+5. Đưa Ra Kết Luận (ai/scripts/predict.py):
+   Mô hình phân tích các đoạn tín hiệu mới.
+   Nếu phát hiện > 3 đoạn có nhịp tim bất thường => Chẩn đoán là "Rung nhi (Atrial Fibrillation)". Ngược lại là "Binh thuong (Normal)".
+
+6. Trả Kết Quả Về Backend:
+   `predict.py` in kết quả chẩn đoán bằng định dạng chuỗi JSON ra giao diện dòng lệnh (stdout).
+   Node.js (`aiBridge.js`) "bắt" lấy chuỗi JSON này, phân giải và trả về giao diện hiển thị cho bác sĩ hoặc bệnh nhân trên website.
+
+========================================================================
+TỔNG KẾT VAI TRÒ
+========================================================================
+- data_loader.py: Kẻ vác gạch (Load data).
+- preprocess.py: Đầu bếp chế biến nguyên liệu (Làm sạch, cắt xén, thêm mắm muối).
+- model.py: Bản vẽ kỹ thuật của bộ não (Kiến trúc Neural Network).
+- train.py: Lò luyện đan (Quản lý toàn bộ vòng đời huấn luyện).
+- predict.py: Bác sĩ trực phòng khám (Nhận dữ liệu, khám bệnh, trả kết quả).

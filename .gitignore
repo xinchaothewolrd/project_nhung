@@ -2,3 +2,5 @@ node_modules/
 uploads/ecg/*.csv
 __pycache__/
 .vscode/
+.venv/
+venv/

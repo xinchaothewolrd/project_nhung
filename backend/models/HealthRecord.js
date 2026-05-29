@@ -28,6 +28,10 @@ const HealthRecord = sequelize.define('HealthRecord', {
     type: DataTypes.STRING,
     defaultValue: 'Pending'
   },
+  ai_diagnosis_code: {
+    type: DataTypes.STRING(5),
+    defaultValue: null
+  },
   doctor_confirm: {
     type: DataTypes.BOOLEAN,
     defaultValue: false

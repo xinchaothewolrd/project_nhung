@@ -7,7 +7,11 @@ MIT-BIH có 3 loại file
 .hea: file chứa thông tin về dữ liệu ECG: tần số lấy mẫu, số kênh, số mẫu, tên kênh, v.v.
 .atr: file chứa thông tin về nhịp tim: vị trí nhịp, nhãn nhịp, v.v.
 """
-def load_mitbih_data(data_dir='./data'):
+# Lấy đường dẫn tuyệt đối thư mục 'ai' (thư mục cha của 'src')
+BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+DEFAULT_DATA_DIR = os.path.join(BASE_DIR, 'data', 'raw')
+
+def load_mitbih_data(data_dir=DEFAULT_DATA_DIR):
     # 1. Kiểm tra và tải dữ liệu nếu chưa có
     if not os.path.exists(data_dir):
         print("Chưa có data, đang tiến hành tải về...")
@@ -28,7 +32,7 @@ def load_mitbih_data(data_dir='./data'):
     all_labels     = []
     all_record_ids = []
 
-    print("Đang đọc dữ liệu, đợi xíu nha...")
+    print("Đang đọc dữ liệu ...")
     for rec_id in ALL_RECORDS:
         try:
             record = wfdb.rdrecord(f'{data_dir}/{rec_id}')      
@@ -41,9 +45,9 @@ def load_mitbih_data(data_dir='./data'):
                 mlii_index = channel_names.index('MLII')
                 signal = record.p_signal[:, mlii_index]
                 
-                all_signals.append(signal)
-                all_labels.append(ann)
-                all_record_ids.append(rec_id)
+                all_signals.append(signal)   #Chứa tín hiệu ecg
+                all_labels.append(ann)       #Chứa nhãn nhịp tim
+                all_record_ids.append(rec_id) #Chứa id của từng record
             else:
                 print(f"Bỏ qua bản ghi {rec_id} vì không có MLII.")
 

@@ -14,9 +14,26 @@ const uploadECG = async (req, res) => {
     }
 
     // 1. Tìm bệnh nhân dựa trên MAC address
-    const device = await Device.findOne({ where: { mac_address } });
+    let device = await Device.findOne({ where: { mac_address } });
     if (!device) {
-      return res.status(404).json({ error: 'Device not registered' });
+      // Tìm bệnh nhân đầu tiên để tự động đăng ký thiết bị (tiện lợi cho việc demo và test)
+      let firstPatient = await User.findOne({ where: { role: 'PATIENT' } });
+      if (!firstPatient) {
+        // Tự động tạo một bệnh nhân mặc định nếu hệ thống chưa có bệnh nhân nào!
+        firstPatient = await User.create({
+          username: 'demo_patient',
+          password_hash: '123456', // Sẽ được tự động mã hóa bởi hook beforeCreate trong User.js
+          role: 'PATIENT',
+          full_name: 'Bệnh Nhân Mặc Định'
+        });
+        console.log('Automatically created a default patient in system');
+      }
+      
+      device = await Device.create({
+        mac_address,
+        patient_id: firstPatient.id
+      });
+      console.log(`Automatically registered device ${mac_address} to patient ID ${firstPatient.id}`);
     }
 
     const patient_id = device.patient_id;
@@ -36,20 +53,32 @@ const uploadECG = async (req, res) => {
     try {
       const aiResult = await runInference(file.path);
       
+      if (aiResult.error) {
+        throw new Error(aiResult.error);
+      }
+      
       // 4. Cập nhật kết quả AI
       record.ai_diagnosis = aiResult.diagnosis;
+      record.ai_diagnosis_code = aiResult.diagnosis_code;
       await record.save();
 
       res.status(200).json({
         message: 'Upload successful',
         record_id: record.id,
-        diagnosis: aiResult.diagnosis
+        diagnosis: aiResult.diagnosis,
+        diagnosis_code: aiResult.diagnosis_code,
+        is_abnormal: aiResult.is_abnormal,
+        distribution: aiResult.distribution
       });
     } catch (aiError) {
       console.error('AI Inference Error:', aiError);
       record.ai_diagnosis = 'AI Error';
       await record.save();
-      res.status(200).json({ message: 'Upload successful, but AI failed', record_id: record.id });
+      res.status(200).json({
+        message: 'Upload successful, but AI failed',
+        record_id: record.id,
+        diagnosis: 'AI Error'
+      });
     }
 
   } catch (error) {

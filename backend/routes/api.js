@@ -6,10 +6,17 @@ const { uploadECG, getPatientRecords, doctorConfirm } = require('../controllers/
 const { register, login } = require('../controllers/authController');
 const { protect } = require('../utils/authMiddleware');
 
+const fs = require('fs');
+
 // Cấu hình lưu trữ tệp CSV
+const uploadDir = 'uploads/ecg/';
+if (!fs.existsSync(uploadDir)) {
+  fs.mkdirSync(uploadDir, { recursive: true });
+}
+
 const storage = multer.diskStorage({
   destination: (req, file, cb) => {
-    cb(null, 'uploads/ecg/');
+    cb(null, uploadDir);
   },
   filename: (req, file, cb) => {
     cb(null, `ecg-${Date.now()}.csv`);
