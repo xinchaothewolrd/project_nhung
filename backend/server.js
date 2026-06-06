@@ -7,13 +7,24 @@ const apiRoutes = require('./routes/api');
 
 const app = express();
 
-// Middleware
-app.use(cors());
+// Cấu hình CORS — chỉ cho phép các origin frontend hợp lệ
+const allowedOrigins = (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:3000,http://127.0.0.1:5173').split(',');
+app.use(cors({
+  origin: (origin, callback) => {
+    // Cho phép request không có origin (e.g. Postman, ESP32, curl)
+    if (!origin || allowedOrigins.includes(origin)) return callback(null, true);
+    callback(new Error('Not allowed by CORS'));
+  },
+  credentials: true,
+}));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Static files (để Frontend có thể xem file CSV nếu cần)
 app.use('/uploads', express.static(path.join(__dirname, 'uploads')));
+
+// Phục vụ Admin Dashboard tĩnh tại /admin
+app.use('/admin', express.static(path.join(__dirname, '..', 'frontend')));
 
 // Routes
 app.use('/api', apiRoutes);

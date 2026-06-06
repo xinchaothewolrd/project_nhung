@@ -21,6 +21,10 @@ const runInference = (csvFilePath) => {
     let dataString = '';
     let errorString = '';
 
+    pythonProcess.on('error', (err) => {
+      reject(`Failed to start AI process. Error: ${err.message}`);
+    });
+
     pythonProcess.stdout.on('data', (data) => {
       dataString += data.toString();
     });

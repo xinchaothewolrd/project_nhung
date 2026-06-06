@@ -1,0 +1,113 @@
+1. Thằng số 1: Kỹ sư "Thợ Hàn" (Phần cứng + Code ESP32)
+Thằng này gánh phần "xác" của hệ thống, ăn ngủ với mỏ hàn và dây điện.
+- Nhiệm vụ "Kịch bản" (State Machine Logic): Thằng này phải code cho con ESP32 chạy theo đúng 4 trạng thái (Trạng thái chờ -> Đang đo -> Đang gửi -> Hiện kết quả).
+Trạng thái Chờ (Idle): Khởi động máy, kết nối WiFi thành công. Màn hình LCD báo: "San sang do!".
+Trạng thái Đo (Measuring): Khi bắt đầu đo, ESP32 sẽ đếm ngược đúng 3 phút (180 giây). Liên tục vắt kiệt con MAX30102 để lấy nhịp tim/SpO2 và cào data từ AD8232 để lấy sóng ECG thô.
+Xử lý sự cố vật lý: Trong 3 phút đó, nếu ngón tay bị tuột khỏi cảm biến hoặc điện cực dán ngực bị rớt (chân LO+/LO- báo tín hiệu), lập tức dừng đo, màn hình chửi ngay: "Loi: Rot dien cuc! / Do lai tu dau".
+- Nhiệm vụ "Né bẫy tử thần" (Quản lý RAM & Gửi Data): Đây là chỗ quyết định thằng code giỏi hay dở. Ghi liên tục 18.000 điểm dữ liệu ECG vào biến String JSON là chết ngắc con ESP32 ngay lập tức do tràn RAM.
+Sử dụng bộ nhớ Flash của ESP32 (dùng thư viện SPIFFS hoặc LittleFS) hoặc bộ nhớ RAM. Đo được số nào ghi ngay vào file .txt trong bộ nhớ nội. Hết 3 phút thì mở file đó ra, đọc từng dòng và stream (bơm) từ từ lên Server.
+- Nhiệm vụ Hứng kết quả (Output):
+Sau khi gửi xong cục data 3 phút, con ESP32 phải đứng đợi (hoặc lặp vòng while) chờ lệnh phản hồi từ con AI trên Server trả về.
+Nhận án tử/sinh: Server nhả về file JSON có chứa kết quả (vd: status: "Bình thường" hoặc status: "Rung nhĩ").
+Hiển thị: Đập ngay cái dòng kết quả đó ra LCD 1602 (ví dụ: "Kq: Rung Nhi / Kham ngay!").
+Cấu trúc file:
+
+2. Thằng số 2: Kỹ sư "Bùa Ngải" Số Liệu (Train AI)
+Kỹ sư "Bùa Ngải Số Liệu" (Phụ trách AI - Mô hình CNN-LSTM)
+a. Giai đoạn "Nhào bột" (Data Preprocessing với MIT-BIH) Đừng có tải data về rồi tống thẳng vào Model, nó "ngu" liền đấy! Thằng số 2 phải dùng thư viện wfdb (Waveform Database) của Python để xử lý đống MIT-BIH này:
+Hái đúng quả: MIT-BIH có 2 kênh, bắt buộc chỉ trích xuất Kênh 1 (MLII) vì nó giống với tín hiệu của con AD8232 nhất. Vứt kênh 2 đi.
+Hạ xung nhịp (Downsampling): MIT-BIH lấy mẫu ở 360Hz. Con ESP32 của mày thu vào file CSV tầm 100Hz. Phải dùng hàm scipy.signal.resample hạ cái 360Hz xuống 100Hz để AI nó quen với tốc độ của đồ án thật.
+Thêm mắm dặm muối (Data Augmentation): Tín hiệu MIT-BIH rất sạch. Thằng này phải cố tình "phá" nó bằng cách thêm nhiễu trắng (Gaussian noise), nhiễu trôi đường nền (Baseline wander) để mô phỏng sự cùi bắp của mạch tự hàn. AI học trên data xấu thì ra thực tế mới khôn được.
+Băm chả (Windowing): 1 bản ghi MIT-BIH dài 30 phút. Phải cắt nó ra thành từng đoạn ngắn (ví dụ: mỗi đoạn 5-10 giây) để gán nhãn (Label) là Bình thường hay Rung nhĩ.
+b. Giai đoạn "Xây lò bát quái" (Thiết kế kiến trúc CNN-LSTM)
+Đây là lúc Keras/TensorFlow hoặc PyTorch lên tiếng. Tại sao lại ghép 2 thằng này? Bảo nó code theo cấu trúc sau:
+Lớp CNN (Mắt thần): Cho tín hiệu ECG đi qua lớp Tích chập 1D (Conv1D). Nhiệm vụ của CNN là soi từng cái gai, từng đường cong để nhận diện phức bộ QRS (đỉnh sóng tim). Nó trích xuất "Đặc trưng không gian".
+Lớp LSTM (Não cá heo): Hứng kết quả từ CNN và phân tích. Nhiệm vụ của LSTM là nhớ "Khoảng cách giữa các nhịp tim". Nhịp trước cách nhịp sau bao xa? Có bị loạn nhịp không? Nó trích xuất "Đặc trưng thời gian".
+Lớp Dense (Chốt đơn): Nén lại thành xác suất. Cuối cùng nhả ra kết quả: 98% Normal (Bình thường) hay 85% Arrhythmia (Bất thường).
+c. Giai đoạn "Nhồi sọ" & Ép xung độ chính xác (Training & Tuning)
+Né bẫy Imbalanced Data: Trong cái MIT-BIH, số nhịp tim bình thường đông như quân Nguyên, còn nhịp có bệnh thì ít. Nếu cứ thế train, AI sẽ bị "lười" và luôn đoán là Bình thường để đạt điểm cao. Bảo nó dùng kỹ thuật SMOTE hoặc chỉnh class_weight để phạt thật nặng nếu AI đoán sai người có bệnh.
+Mục tiêu: Độ chính xác tổng (Accuracy) > 95%. NHƯNG, cái quan trọng nhất phải khoe với hội đồng là Recall (Độ nhạy). Thà bắt nhầm người khỏe thành bệnh (để họ đi khám), còn hơn bỏ sót người có bệnh (họ lăn ra xỉu).
+d. Giai đoạn "Xuất chuồng" (Deployment) Vì mày đo 3 phút (180 giây), con AI không thể nhai một cục 180 giây cùng lúc được.
+Sau khi train xong, thằng số 2 lưu mô hình lại thành file .h5 (nếu dùng TensorFlow) hoặc .pt (PyTorch).
+Viết một hàm Inference (Dự đoán): Hàm này nhận đầu vào là cái file data.csv 3 phút từ ESP32 gửi lên. Nó sẽ tự động cắt file CSV đó ra thành 36 đoạn (mỗi đoạn 5 giây). Cho AI dự đoán từng đoạn một. Nếu có quá 3 đoạn báo "Bất thường", chốt luôn cả cái file 3 phút đó là CÓ BỆNH.
+Quăng cái file Model và cái hàm dự đoán đó cho thằng số 3 (Backend) 
+3. Thằng số 3: Kỹ sư "Cột Sống" (Backend Developer)
+a. Dựng "Nhà kho" (Database & API Framework):
+Chọn framework: FastAPI hoặc Django/Flask.
+Thiết kế Database (dùng MySQL là đẹp nhất). Tạo các bảng: 
+
+Cấu hình ORM (SQLAlchemy) để code tương tác với Database cho nhàn, khỏi viết SQL chay.
+b. Nhận Data từ ESP32: Hứng gói tin từ esp32
+c. Hợp thể với "Não bộ" (Inference AI - Chỗ này ăn tiền nhất nè!):
+Gọi model AI đã dc train và đọc kết quả
+Tích tắc 1 giây sau là có kết quả: "Bình thường" hay "Bất thường". Lưu ngay cái kết quả này vào Database.
+d. Viết API cho frontend
+
+4. Thằng số 4: Nghệ sĩ "Giao Diện Mượt" 1 (Frontend - Patient App)
+a. Xây dựng "Mặt tiền" (UI/UX & Auth):
+Làm trang Đăng nhập/Đăng ký. (Đăng kí phải có ID của esp32)
+Xây dựng Dashboard cá nhân cho bệnh nhân: Hiển thị thông tin cơ bản, nhịp tim trung bình, chỉ số SpO2 của lần đo gần nhất.
+b. Vẽ biểu đồ "Tĩnh mà Động" (Chỗ ăn tiền nhất của thằng này):
+Không làm real-time nữa, mà làm Interactive Chart (Biểu đồ tương tác).
+Khi người dùng click vào xem 1 lần đo (ví dụ lần đo lúc 8h sáng nay), Frontend sẽ gọi API của thằng Backend để tải cái file data (hoặc mảng data) 3 phút đó về.
+Dùng các thư viện xịn xò chuyên trị data lớn như Apache ECharts, Plotly.js, hoặc Highcharts. Nhét 18.000 điểm dữ liệu vào đó.
+Tính năng bắt buộc: Phải code cho cái biểu đồ đó có khả năng Zoom in/Zoom out và Kéo qua lại (Scroll/Pan). Nhìn toàn cảnh 3 phút thì sóng nó sát rạt nhau, nhưng khi bác sĩ hoặc bệnh nhân dùng chuột lăn (zoom) to lên, nó sẽ lộ rõ từng nhịp đập Q-R-S y như thật. Khè hội đồng là ở cái chỗ zoom mượt mà này này!
+c. Trang "Lịch sử bệnh án" (History):
+Làm một cái danh sách (List/Table) liệt kê tất cả các lần đo từ trước đến nay.
+Mỗi dòng gồm: Ngày giờ đo, BPM, SpO2, và Lời phán của AI (có cái icon màu xanh cho Bình thường, màu đỏ cho Có bệnh).
+Click vào dòng nào thì bung cái biểu đồ của dòng đó ra.
+d. Báo cáo & Lời khuyên (Report):
+Dựa vào cái kết quả AI mà Backend trả về, Frontend phải biết "thêu hoa dệt gấm".
+Nếu trả về "Rung nhĩ", hiện thêm mấy dòng cảnh báo đỏ chót, kèm nút "Gọi cấp cứu" hoặc "Đặt lịch khám bác sĩ ngay".
+Nhìn cái App nó phải có tính nhân văn và y tế một tí.
+
+5. Thằng số 5: Nghệ sĩ "Tổng Quản" 2 (Frontend - Hospital Dashboard)
+a. Xây dựng "Phòng trực ban" (Dashboard Overview):
+Mở app lên là đập vào mắt các con số thống kê ngầu lòi: Hôm nay có bao nhiêu bệnh nhân đã đo? Có bao nhiêu ca bị AI bắt lỗi "Bất thường"?
+Dùng các biểu đồ tròn (Pie chart) hoặc cột để thống kê tình trạng sức khỏe chung của toàn bộ danh sách bệnh nhân mà bác sĩ này quản lý.
+b. Quản lý "Bầy đàn" (Patient Management):
+Làm một cái danh sách hiển thị tất cả bệnh nhân.
+Phải có thanh công cụ Tìm kiếm (bằng tên, mã bệnh nhân) và Lọc (chỉ hiện những người có cảnh báo, hoặc chỉ hiện những người chưa đo ngày hôm nay).
+c. Khám bệnh từ xa (Medical Record Review):
+Tương tự như app của bệnh nhân, khi bác sĩ click vào cái cảnh báo đỏ đó, nó sẽ bung ra trang chi tiết.
+Tái sử dụng code của thằng số 4: Bê nguyên cái biểu đồ Interactive (zoom, kéo thả sóng ECG) sang đây cho bác sĩ soi.
+Tính năng "Quyền lực": Bác sĩ là người quyết định cuối cùng. Thằng 5 phải code thêm một cái khung để bác sĩ xác nhận: "AI chẩn đoán đúng/sai" và một ô Textbox để gõ lời khuyên. Sau khi bác sĩ bấm "Gửi", bên App của người bệnh (thằng số 4) sẽ nhận được thông báo lời khuyên này.
+
+
+
+
+ Làm sao hệ thống biết "Ai đang đo"?
+Mày nhớ cái bảng Devices tao vẽ cho mày ở phần Database không? Chìa khóa nằm ở đó! Con ESP32 không hề biết thằng bệnh nhân tên là Nguyễn Văn A hay Trần Thị B. Nó chỉ biết mỗi cái "Căn cước công dân" của chính nó thôi.
+Quy trình nó chạy như sau:
+Bước 1 (Định danh vật lý): Mỗi con chip ESP32 khi sinh ra đời đều có một mã duy nhất gọi là Địa chỉ MAC (ví dụ: 24:0A:C4:12:34:56). Thằng số 1 code ESP32 sẽ dùng 1 dòng lệnh để lôi cái mã MAC này ra, gán nó thành cái device_id.
+Bước 2 (Gửi hàng): Khi đo xong 3 phút, con ESP32 gói cái mã MAC này đính kèm với file CSV rồi ném lên Server.
+Bước 3 (Backend tra sổ): Thằng Server (Python) nhận được hàng, nó nhìn cái mã MAC 24:0A:C4:12:34:56. Nó sẽ lật cái bảng Devices trong cơ sở dữ liệu MySQL ra dò:
+"À, cái MAC này đang được gán cho patient_id = 5 (Nguyễn Văn A)."
+Bước 4 (Chốt đơn): Server lưu cái file CSV đó vào bảng Health_Records và điền tên thằng A vào. Xong phim!
+Nhờ quy trình này, ESP32 cứ việc đo, còn việc "nhận người quen" là do Backend lo hết.
+
+1. Bảng Users (Người dùng)
+Bảng này chứa thông tin của cả bệnh nhân lẫn bác sĩ. Mày phân biệt tụi nó bằng cái cột role (vai trò).
+id (INT, Primary Key)
+username (VARCHAR) - Tài khoản đăng nhập.
+password_hash (VARCHAR) - Mật khẩu đã mã hóa (đừng lưu pass thô nhé, thầy cô chửi chết).
+role (VARCHAR) - Có 2 loại: 'PATIENT' (Bệnh nhân) hoặc 'DOCTOR' (Bác sĩ).
+full_name (VARCHAR) - Tên đầy đủ.
+phone (VARCHAR) - Số điện thoại.
+2. Bảng Devices (Quản lý thiết bị ESP32)
+Phải có bảng này để biết cái máy đo đang nằm trên tay thằng bệnh nhân nào.
+id (INT, Primary Key)
+mac_address (VARCHAR) - Địa chỉ MAC hoặc mã riêng của con ESP32 (vd: ESP32_001).
+patient_id (INT, Foreign Key) - Trỏ về bảng Users. (Cái máy này do thằng bệnh nhân nào đang xài).
+3. Bảng Health_Records (Hồ sơ đo lường - Bảng "Nồi cơm")
+Bảng này quan trọng nhất. Mỗi lần con ESP32 đo xong 3 phút và Server nhận được file, nó sẽ đẻ ra một dòng ở đây.
+id (INT, Primary Key)
+patient_id (INT, Foreign Key) - Ai đo?
+device_id (INT, Foreign Key) - Máy nào đo?
+measure_time (DATETIME) - Đo lúc mấy giờ?
+bpm (INT) - Nhịp tim trung bình.
+spo2 (INT) - Nồng độ Oxy trung bình.
+ai_diagnosis (VARCHAR) - Lời phán của con AI (vd: "Normal", "Arrhythmia", "Atrial Fibrillation").
+ecg_file_url (VARCHAR) - LƯU Ý SỐNG CÒN: Tuyệt đối không lưu mảng 18.000 con số ECG vào Database! Mày bảo thằng Backend lưu cái file .csv đó vào một thư mục trên Server (hoặc mây), rồi chỉ lưu cái đường dẫn (path/URL) vào bảng này thôi (vd: /uploads/ecg/benhnhan1_1711584000.csv).
+doctor_confirm: True/False (Xác nhận của bác sĩ đối với kết quả)
+doctor_advise: String (lời khuyên của bác sĩ)

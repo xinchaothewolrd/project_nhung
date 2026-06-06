@@ -11,6 +11,10 @@ const sequelize = new Sequelize(
     host: process.env.DB_HOST || 'localhost',
     dialect: 'mysql',
     logging: false,
+    define: {
+      charset: 'utf8mb4',
+      collate: 'utf8mb4_unicode_ci'
+    }
   }
 );
 

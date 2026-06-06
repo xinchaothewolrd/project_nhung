@@ -18,11 +18,15 @@ const User = sequelize.define('User', {
     allowNull: false
   },
   role: {
-    type: DataTypes.ENUM('PATIENT', 'DOCTOR'),
+    type: DataTypes.ENUM('PATIENT', 'DOCTOR', 'ADMIN'),
     defaultValue: 'PATIENT'
   },
   full_name: {
     type: DataTypes.STRING
+  },
+  phone: {
+    type: DataTypes.STRING(20),
+    allowNull: true
   }
 }, {
   hooks: {

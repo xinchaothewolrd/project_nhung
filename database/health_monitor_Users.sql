@@ -4,6 +4,8 @@
 -- ------------------------------------------------------
 -- Server version	9.5.0
 
+USE health_monitor;
+
 /*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
 /*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
 /*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
@@ -21,7 +23,7 @@ SET @@SESSION.SQL_LOG_BIN= 0;
 -- GTID state at the beginning of the backup 
 --
 
-SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '90888fe6-af61-11f0-b499-7abb6701acc5:1-3175';
+-- SET @@GLOBAL.GTID_PURGED=/*!80000 '+'*/ '90888fe6-af61-11f0-b499-7abb6701acc5:1-3175';
 
 --
 -- Table structure for table `Users`
@@ -34,8 +36,9 @@ CREATE TABLE `Users` (
   `id` int NOT NULL AUTO_INCREMENT,
   `username` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
   `password_hash` varchar(255) COLLATE utf8mb4_unicode_ci NOT NULL,
-  `role` enum('PATIENT','DOCTOR') COLLATE utf8mb4_unicode_ci DEFAULT 'PATIENT',
+  `role` enum('PATIENT','DOCTOR','ADMIN') COLLATE utf8mb4_unicode_ci DEFAULT 'PATIENT',
   `full_name` varchar(255) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
+  `phone` varchar(20) COLLATE utf8mb4_unicode_ci DEFAULT NULL,
   `createdAt` datetime NOT NULL,
   `updatedAt` datetime NOT NULL,
   PRIMARY KEY (`id`),
@@ -49,7 +52,9 @@ CREATE TABLE `Users` (
 
 LOCK TABLES `Users` WRITE;
 /*!40000 ALTER TABLE `Users` DISABLE KEYS */;
-INSERT INTO `Users` VALUES (1,'demo_patient','$2b$10$kdzI13AVPimE/8Y0MX0E/uMEFSWIyx89iJwNGSsP7LBOVrZYSaXLi','PATIENT','Bệnh Nhân Mặc Định','2026-05-29 14:33:31','2026-05-29 14:33:31');
+INSERT INTO `Users` VALUES 
+  (1,'demo_patient','$2b$10$kdzI13AVPimE/8Y0MX0E/uMEFSWIyx89iJwNGSsP7LBOVrZYSaXLi','PATIENT','Bệnh Nhân Mặc Định',NULL,'2026-05-29 14:33:31','2026-05-29 14:33:31'),
+  (2,'bacsi_admin','$2b$10$t3vlza94oeyRYbjg.RcMQ.6/H4BVKIcTyCbU.y3rG/8xBk3QBNhae','DOCTOR','Bác Sĩ Admin',NULL,'2026-05-29 14:33:31','2026-05-29 14:33:31');
 /*!40000 ALTER TABLE `Users` ENABLE KEYS */;
 UNLOCK TABLES;
 SET @@SESSION.SQL_LOG_BIN = @MYSQLDUMP_TEMP_LOG_BIN;

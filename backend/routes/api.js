@@ -2,11 +2,13 @@ const express = require('express');
 const router = express.Router();
 const multer = require('multer');
 const path = require('path');
+const fs = require('fs');
+
+// Controllers
 const { uploadECG, getPatientRecords, doctorConfirm } = require('../controllers/recordController');
 const { register, login } = require('../controllers/authController');
-const { protect } = require('../utils/authMiddleware');
-
-const fs = require('fs');
+const adminController = require('../controllers/adminController');
+const { protect, adminProtect, onlyAdmin } = require('../utils/authMiddleware');
 
 // Cấu hình lưu trữ tệp CSV
 const uploadDir = 'uploads/ecg/';
@@ -32,8 +34,30 @@ router.post('/upload', upload.single('ecg_file'), uploadECG);
 router.post('/auth/register', register);
 router.post('/auth/login', login);
 
-// Routes cho Frontend
+// Routes cho Frontend (User Role)
 router.get('/records/:patient_id', protect, getPatientRecords);
 router.post('/doctor/confirm', protect, doctorConfirm);
 
+// ==========================================
+// Routes cho Admin Dashboard (yêu cầu DOCTOR role)
+// ==========================================
+
+// Users
+router.get('/users', adminProtect, adminController.getUsers);
+router.post('/users', adminProtect, onlyAdmin, adminController.createUser);
+router.put('/users/:id', adminProtect, onlyAdmin, adminController.updateUser);
+router.delete('/users/:id', adminProtect, onlyAdmin, adminController.deleteUser);
+
+// Devices
+router.get('/devices', adminProtect, adminController.getDevices);
+router.post('/devices', adminProtect, onlyAdmin, adminController.createDevice);
+router.delete('/devices/:id', adminProtect, onlyAdmin, adminController.deleteDevice);
+
+// Health Records
+router.get('/health-records', adminProtect, adminController.getHealthRecords);
+router.put('/health-records/:id', adminProtect, adminController.updateHealthRecord);
+router.delete('/health-records/:id', adminProtect, onlyAdmin, adminController.deleteHealthRecord);
+router.post('/health-records/analyze/:id', adminProtect, adminController.analyzeHealthRecord);
+
 module.exports = router;
+
