@@ -15,7 +15,7 @@ export default function AuthPage() {
   // form đăng nhập
   const [li, setLi] = useState({ user: '', pass: '' })
   // form đăng ký
-  const [rg, setRg] = useState({ name: '', user: '', pass: '', dev: '' })
+  const [rg, setRg] = useState({ name: '', phone: '', user: '', pass: '', dev: '' })
 
   // cấu hình máy chủ
   const [showApi, setShowApi] = useState(false)
@@ -35,12 +35,12 @@ export default function AuthPage() {
   }
 
   async function handleRegister() {
-    if (!rg.name || !rg.user || !rg.pass) return setMsg({ text: 'Vui lòng điền họ tên, tên đăng nhập và mật khẩu.', type: 'err' })
+    if (!rg.name || !rg.phone || !rg.user || !rg.pass) return setMsg({ text: 'Vui lòng điền họ tên, số điện thoại, tên đăng nhập và mật khẩu.', type: 'err' })
     if (!rg.dev) return setMsg({ text: 'Vui lòng nhập mã thiết bị ESP32 (MAC) để gắn với tài khoản.', type: 'err' })
     if (rg.pass.length < 6) return setMsg({ text: 'Mật khẩu nên có tối thiểu 6 ký tự.', type: 'err' })
     setBusy(true); setMsg(null)
     try {
-      await register({ full_name: rg.name.trim(), username: rg.user.trim(), password: rg.pass, device: rg.dev.trim() })
+      await register({ full_name: rg.name.trim(), phone: rg.phone.trim(), username: rg.user.trim(), password: rg.pass, device: rg.dev.trim() })
       navigate('/', { replace: true })
     } catch (e) {
       setMsg({ text: e.message, type: 'err' })
@@ -102,6 +102,9 @@ export default function AuthPage() {
               <div className="field"><label>Họ và tên</label>
                 <input value={rg.name} placeholder="Nguyễn Văn A"
                   onChange={(e) => setRg({ ...rg, name: e.target.value })} onKeyDown={onEnter(handleRegister)} /></div>
+              <div className="field"><label>Số điện thoại</label>
+                <input value={rg.phone} placeholder="vd: 0912345678"
+                  onChange={(e) => setRg({ ...rg, phone: e.target.value })} onKeyDown={onEnter(handleRegister)} /></div>
               <div className="field"><label>Tên đăng nhập</label>
                 <input value={rg.user} autoComplete="username" placeholder="Dùng để đăng nhập"
                   onChange={(e) => setRg({ ...rg, user: e.target.value })} onKeyDown={onEnter(handleRegister)} /></div>

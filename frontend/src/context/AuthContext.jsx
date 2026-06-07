@@ -24,7 +24,7 @@ export function AuthProvider({ children }) {
     return data
   }, [])
 
-  const register = useCallback(async ({ full_name, username, password, device }) => {
+  const register = useCallback(async ({ full_name, username, password, device, phone }) => {
     // Gửi kèm mã ESP32 (mac_address & device_id) để backend liên kết thiết bị với tài khoản
     await api('/auth/register', {
       method: 'POST',
@@ -32,6 +32,7 @@ export function AuthProvider({ children }) {
         username,
         password,
         full_name,
+        phone,
         role: 'PATIENT',
         mac_address: device.toUpperCase(),
         device_id: device.toUpperCase(),
