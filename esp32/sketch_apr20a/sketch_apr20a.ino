@@ -10,13 +10,13 @@
 // =========================================================
 // CẤU HÌNH
 // =========================================================
-const char* WIFI_SSID           = "FPT Telecom-60EE";
-const char* WIFI_PASS           = "passlagi";
+const char* WIFI_SSID           = "FPT Telecom-C0A5";
+const char* WIFI_PASS           = "duckien0406";
 const int   ECG_POINTS_TARGET   = 6000;        // Ép lấy ĐÚNG 6000 điểm
 const long  SPO2_DURATION_MS    = 15000;       // Đo SpO2 trong 15 giây
 const char* ECG_FILE_PATH       = "/ecg_data.csv";
 
-const char* BACKEND_HOST        = "192.168.1.4"; // IP máy chạy backend (điều chỉnh cho phù hợp)
+const char* BACKEND_HOST        = "192.168.100.211"; // IP máy chạy backend (điều chỉnh cho phù hợp)
 const int   BACKEND_PORT        = 5000;
 
 // =========================================================
@@ -252,8 +252,14 @@ void setup() {
     while (1) delay(1000);
   }
 
-  lcdPrint("WiFi OK!", WiFi.localIP().toString().c_str());
-  delay(2000);
+  String macStr = WiFi.macAddress();
+  Serial.println("MAC Address: " + macStr);
+  
+  char macLine[17];
+  snprintf(macLine, sizeof(macLine), "MAC:%s", macStr.c_str());
+  
+  lcdPrint("WiFi OK!", macLine);
+  delay(5000); // Hien thi MAC trong 5 giay
 
   currentState = IDLE;
 }

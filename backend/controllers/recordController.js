@@ -14,26 +14,16 @@ const uploadECG = async (req, res) => {
     }
 
     // 1. Tìm bệnh nhân dựa trên MAC address
-    let device = await Device.findOne({ where: { mac_address } });
+    if (!mac_address) {
+      return res.status(400).json({ error: 'Missing MAC address' });
+    }
+    
+    const normalizedMac = mac_address.toUpperCase();
+    let device = await Device.findOne({ where: { mac_address: normalizedMac } });
+    
     if (!device) {
-      // Tìm bệnh nhân đầu tiên để tự động đăng ký thiết bị (tiện lợi cho việc demo và test)
-      let firstPatient = await User.findOne({ where: { role: 'PATIENT' } });
-      if (!firstPatient) {
-        // Tự động tạo một bệnh nhân mặc định nếu hệ thống chưa có bệnh nhân nào!
-        firstPatient = await User.create({
-          username: 'demo_patient',
-          password_hash: '123456', // Sẽ được tự động mã hóa bởi hook beforeCreate trong User.js
-          role: 'PATIENT',
-          full_name: 'Bệnh Nhân Mặc Định'
-        });
-        console.log('Automatically created a default patient in system');
-      }
-      
-      device = await Device.create({
-        mac_address,
-        patient_id: firstPatient.id
-      });
-      console.log(`Automatically registered device ${mac_address} to patient ID ${firstPatient.id}`);
+      console.log(`Upload rejected: Device ${normalizedMac} is not registered`);
+      return res.status(400).json({ error: 'Device not registered' });
     }
 
     const patient_id = device.patient_id;
