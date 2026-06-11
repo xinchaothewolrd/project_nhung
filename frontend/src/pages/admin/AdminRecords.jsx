@@ -1,6 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { adminApi, showToast, fmtDate, aiShort } from './adminUtils'
 import { apiOrigin } from '../../api/client'
+import EcgChart from '../../components/EcgChart'
 
 // Component Records dùng chung cho cả Admin (canEdit=true) và Doctor (canEdit=false)
 export default function AdminRecords({ canEdit = true }) {
@@ -11,7 +12,6 @@ export default function AdminRecords({ canEdit = true }) {
   const [adviseModal, setAdviseModal] = useState(false)
   const [advise, setAdvise] = useState('')
   const [confirming, setConfirming] = useState(false)
-  const [analyzing, setAnalyzing] = useState(false)
 
   const load = useCallback(async () => {
     setLoading(true)
@@ -53,18 +53,52 @@ export default function AdminRecords({ canEdit = true }) {
     finally { setConfirming(false) }
   }
 
-  async function analyzeAI() {
+  function recordsToCSV(list) {
+    const headers = ['ID', 'Bệnh nhân', 'Thiết bị (MAC)', 'Thời gian đo', 'BPM', 'SpO2 (%)', 'Bác sĩ xác nhận', 'Lời khuyên bác sĩ']
+    const rows = list.map(r => {
+      const escapeCSV = v => `"${String(v ?? '').replace(/"/g, '""')}"`
+      return [
+        r.id,
+        escapeCSV(r.User?.full_name || r.patient_id),
+        escapeCSV(r.Device?.mac_address || r.device_id),
+        escapeCSV(fmtDate(r.createdAt)),
+        r.bpm ?? '',
+        r.spo2 ?? '',
+        r.doctor_confirm ? 'Đã xác nhận' : 'Chờ xác nhận',
+        escapeCSV(r.doctor_advise || '')
+      ].join(',')
+    })
+    return [headers.join(','), ...rows].join('\n')
+  }
+
+  function downloadCSV(csvContent, filename) {
+    const BOM = '\uFEFF'
+    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.style.display = 'none'
+    a.href = url
+    a.download = filename
+    document.body.appendChild(a)
+    a.click()
+    setTimeout(() => {
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    }, 2000)
+  }
+
+  function exportCSV() {
+    if (!filtered.length) return showToast('Không có dữ liệu để xuất', 'err')
+    const csv = recordsToCSV(filtered)
+    downloadCSV(csv, `records_${Date.now()}.csv`)
+    showToast('Đang tải file CSV!')
+  }
+
+  function exportRecordCSV() {
     if (!detail) return
-    setAnalyzing(true)
-    try {
-      await adminApi(`/health-records/analyze/${detail.id}`, { method: 'POST' })
-      showToast('Phân tích AI hoàn thành!')
-      const updated = await adminApi('/health-records')
-      setRecords(updated)
-      const refreshed = updated.find(r => r.id === detail.id)
-      if (refreshed) setDetail(refreshed)
-    } catch (e) { showToast('Lỗi phân tích AI: ' + e.message, 'err') }
-    finally { setAnalyzing(false) }
+    const csv = recordsToCSV([detail])
+    downloadCSV(csv, `record_${detail.id}_${Date.now()}.csv`)
+    showToast('Đang tải file CSV hồ sơ chi tiết!')
   }
 
   async function del(id) {
@@ -95,6 +129,7 @@ export default function AdminRecords({ canEdit = true }) {
         <div><h2>Hồ sơ sức khỏe <span className="adm-count">({filtered.length})</span></h2></div>
         <div className="adm-actions">
           <input className="adm-search" placeholder="🔍 Tìm bệnh nhân..." onChange={e => search(e.target.value)} />
+          <button className="adm-btn primary" onClick={exportCSV}>📥 Xuất CSV</button>
           <button className="adm-btn ghost sm" onClick={load}>↻ Làm mới</button>
         </div>
       </div>
@@ -107,13 +142,13 @@ export default function AdminRecords({ canEdit = true }) {
             <thead>
               <tr>
                 <th>ID</th><th>Bệnh nhân</th><th>Thiết bị</th>
-                <th>BPM</th><th>SpO₂</th><th>AI</th>
+                <th>BPM</th><th>SpO₂</th>
                 <th>Bác sĩ</th><th>Thời gian</th><th>Thao tác</th>
               </tr>
             </thead>
             <tbody>
               {filtered.length === 0 ? (
-                <tr><td colSpan={9}><div className="adm-empty">🩺 Chưa có hồ sơ nào</div></td></tr>
+                <tr><td colSpan={8}><div className="adm-empty">🩺 Chưa có hồ sơ nào</div></td></tr>
               ) : filtered.map(r => {
                 const bpmColor = r.bpm > 100 || r.bpm < 60 ? '#f87171' : '#34d399'
                 const spo2Color = r.spo2 < 95 ? '#f87171' : '#34d399'
@@ -124,7 +159,6 @@ export default function AdminRecords({ canEdit = true }) {
                     <td><code style={{ fontSize: 11, color: 'var(--adm-muted)' }}>{r.Device?.mac_address || r.device_id}</code></td>
                     <td><b style={{ color: bpmColor }}>{r.bpm ?? '—'}</b></td>
                     <td><b style={{ color: spo2Color }}>{r.spo2 ?? '—'}%</b></td>
-                    <td>{renderAI(r.ai_diagnosis)}</td>
                     <td>
                       {r.doctor_confirm
                         ? <span className="adm-badge green">✅ Xác nhận</span>
@@ -156,6 +190,17 @@ export default function AdminRecords({ canEdit = true }) {
               <button className="adm-modal-close" onClick={() => setDetail(null)}>✕</button>
             </div>
 
+            {/* ECG Chart */}
+            {detail.ecg_file_url && (
+              <div className="monitor-panel" style={{ marginBottom: 18 }}>
+                <div className="monitor-head">
+                  <div className="m-title"><span>HD</span> <span style={{ opacity: 0.5, fontSize: 10 }}>LEAD II</span></div>
+                  <div className="live"><i></i> SIGNAL TRACE</div>
+                </div>
+                <EcgChart url={`${apiOrigin()}/${detail.ecg_file_url.replace(/^\//, '')}`} />
+              </div>
+            )}
+
             {/* Info grid */}
             <div className="adm-detail-grid">
               <InfoRow label="Bệnh nhân" value={<b>{detail.User?.full_name || detail.patient_id}</b>} />
@@ -167,27 +212,10 @@ export default function AdminRecords({ canEdit = true }) {
               <InfoRow label="Thời gian đo" value={fmtDate(detail.createdAt)} />
               <InfoRow label="File ECG" value={
                 detail.ecg_file_url
-                  ? <a href={apiOrigin() + detail.ecg_file_url} target="_blank" rel="noreferrer" style={{ color: '#60a5fa' }}>📁 Tải file ECG</a>
+                  ? <a href={`${apiOrigin()}/${detail.ecg_file_url.replace(/^\//, '')}`} target="_blank" rel="noreferrer" style={{ color: '#60a5fa' }}>📁 Tải file ECG</a>
                   : <span className="adm-muted">Chưa có file</span>
               } />
             </div>
-
-            {/* AI Block */}
-            {detail.ai_diagnosis && (() => {
-              try {
-                const ai = JSON.parse(detail.ai_diagnosis)
-                return (
-                  <div className="adm-ai-block">
-                    <div><b>🤖 AI Chẩn đoán:</b> {renderAI(detail.ai_diagnosis)}
-                      {ai.confidence != null && <>&nbsp; Độ tin cậy: <b>{Math.round(ai.confidence * 100)}%</b></>}
-                    </div>
-                    {ai.note && <div style={{ marginTop: 6 }}><b>Ghi chú:</b> {ai.note}</div>}
-                  </div>
-                )
-              } catch {
-                return <div className="adm-ai-block"><b>Trạng thái:</b> {detail.ai_diagnosis}</div>
-              }
-            })()}
 
             {/* Doctor confirmed */}
             {detail.doctor_confirm && (
@@ -215,9 +243,7 @@ export default function AdminRecords({ canEdit = true }) {
                   {confirming ? 'Đang lưu...' : '✅ Xác nhận & Lưu'}
                 </button>
               )}
-              <button className="adm-btn primary" onClick={analyzeAI} disabled={analyzing}>
-                {analyzing ? '⏳ Đang phân tích...' : '🤖 Phân tích AI'}
-              </button>
+              <button className="adm-btn primary" onClick={exportRecordCSV}>📥 Tải CSV</button>
               <button className="adm-btn ghost" onClick={() => { setDetail(null); setAdviseModal(false) }}>Đóng</button>
             </div>
           </div>
@@ -234,16 +260,4 @@ function InfoRow({ label, value }) {
       <div>{value}</div>
     </div>
   )
-}
-
-function renderAI(txt) {
-  if (!txt) return <span className="adm-badge yellow">PENDING</span>
-  try {
-    const obj = JSON.parse(txt)
-    const d = obj.diagnosis || '?'
-    const cls = d === 'NORMAL' ? 'green' : d === 'PENDING' ? 'yellow' : 'red'
-    return <span className={`adm-badge ${cls}`}>{d}</span>
-  } catch {
-    return <span className="adm-badge yellow">{String(txt).slice(0, 20)}</span>
-  }
 }

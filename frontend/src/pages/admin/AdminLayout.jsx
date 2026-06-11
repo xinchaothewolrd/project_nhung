@@ -34,10 +34,10 @@ export default function AdminLayout({ role }) {
       {/* ── SIDEBAR ── */}
       <aside className="adm-sidebar">
         <div className="adm-brand">
-          <span className="adm-logo"><PulseIcon size={22} color="#86E7C0" /></span>
+          <span className="adm-logo">🫀</span>
           {!collapsed && (
             <div className="adm-brand-text">
-              <b>CardioCare</b>
+              <b>Health Admin</b>
               <small>{role === 'ADMIN' ? 'Admin Panel' : 'Doctor Portal'}</small>
             </div>
           )}
@@ -84,7 +84,7 @@ export default function AdminLayout({ role }) {
       <main className="adm-main">
         <div className="adm-topbar">
           <div className="adm-page-title">
-            {role === 'ADMIN' ? '🔑 Admin Dashboard' : '👨‍⚕️ Doctor Portal'}
+            Health Monitor <span>{role === 'ADMIN' ? 'Admin' : 'Doctor'}</span>
           </div>
           <div className="adm-status">
             <span className="adm-dot" />

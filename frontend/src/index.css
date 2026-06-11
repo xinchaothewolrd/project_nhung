@@ -245,13 +245,14 @@ input{font-family:inherit}
    ADMIN / DOCTOR LAYOUT
 ═══════════════════════════════════════════════════════ */
 :root {
-  --adm-bg: #0f1117;
-  --adm-card: #1a1d27;
-  --adm-border: rgba(255,255,255,.08);
+  --adm-bg: #0a0f1e;
+  --adm-surface: #111827;
+  --adm-card: #1a2235;
+  --adm-border: rgba(255,255,255,.07);
   --adm-text: #e2e8f0;
-  --adm-muted: #718096;
-  --adm-accent: #6366f1;
-  --adm-accent-2: #818cf8;
+  --adm-muted: #64748b;
+  --adm-accent: #3b82f6;
+  --adm-accent-2: #8b5cf6;
   --adm-green: #10b981;
   --adm-red: #ef4444;
   --adm-yellow: #f59e0b;
@@ -274,7 +275,7 @@ input{font-family:inherit}
 .adm-sidebar {
   width: var(--adm-sidebar-w);
   min-height: 100vh;
-  background: linear-gradient(180deg, #13161f 0%, #0f1117 100%);
+  background: var(--adm-surface);
   border-right: 1px solid var(--adm-border);
   display: flex;
   flex-direction: column;
@@ -296,14 +297,14 @@ input{font-family:inherit}
   min-height: 60px;
 }
 .adm-logo {
-  width: 36px;
-  height: 36px;
+  width: 38px;
+  height: 38px;
   border-radius: 10px;
-  background: rgba(99,102,241,.15);
-  border: 1px solid rgba(99,102,241,.3);
+  background: linear-gradient(135deg, var(--adm-accent), var(--adm-accent-2));
   display: grid;
   place-items: center;
   flex-shrink: 0;
+  font-size: 18px;
 }
 .adm-brand-text { line-height: 1.2 }
 .adm-brand-text b { font-size: .95rem; color: #fff; white-space: nowrap }
@@ -354,9 +355,9 @@ input{font-family:inherit}
 }
 .adm-nav-item:hover { background: rgba(255,255,255,.06); color: #fff }
 .adm-nav-item.active {
-  background: rgba(99,102,241,.18);
-  color: var(--adm-accent-2);
-  border: 1px solid rgba(99,102,241,.25);
+  background: linear-gradient(135deg, rgba(59,130,246,0.2), rgba(139,92,246,0.15));
+  color: #93c5fd;
+  border: 1px solid rgba(59,130,246,0.25);
 }
 .adm-nav-icon { font-size: 18px; flex-shrink: 0; width: 20px; text-align: center }
 
@@ -428,12 +429,13 @@ input{font-family:inherit}
   align-items: center;
   justify-content: space-between;
   padding: 16px 28px;
-  background: rgba(26,29,39,.8);
-  backdrop-filter: blur(10px);
+  background: rgba(17, 24, 39, 0.8);
+  backdrop-filter: blur(12px);
   border-bottom: 1px solid var(--adm-border);
   flex-shrink: 0;
 }
-.adm-page-title { font-weight: 700; font-size: 1.05rem; color: #fff }
+.adm-page-title { font-weight: 700; font-size: 18px; color: #fff }
+.adm-page-title span { color: var(--adm-accent) }
 .adm-status { display: flex; align-items: center; gap: 8px; font-size: .8rem; color: var(--adm-muted) }
 .adm-dot {
   width: 8px; height: 8px; border-radius: 50%;
@@ -487,18 +489,17 @@ input{font-family:inherit}
   overflow: hidden;
   transition: .2s;
 }
-.adm-stat-card:hover { border-color: rgba(255,255,255,.15); transform: translateY(-2px) }
+.adm-stat-card:hover { transform: translateY(-2px); box-shadow: 0 8px 32px rgba(0,0,0,0.3) }
 .adm-stat-card::before {
   content: '';
   position: absolute;
-  inset: 0;
-  opacity: .06;
-  border-radius: inherit;
+  top: 0; left: 0; right: 0;
+  height: 2px;
 }
-.adm-stat-card.blue::before { background: var(--adm-blue) }
-.adm-stat-card.green::before { background: var(--adm-green) }
-.adm-stat-card.yellow::before { background: var(--adm-yellow) }
-.adm-stat-card.red::before { background: var(--adm-red) }
+.adm-stat-card.blue::before { background: linear-gradient(90deg, var(--adm-accent), var(--adm-accent-2)) }
+.adm-stat-card.green::before { background: linear-gradient(90deg, var(--adm-green), #34d399) }
+.adm-stat-card.yellow::before { background: linear-gradient(90deg, var(--adm-yellow), #fbbf24) }
+.adm-stat-card.red::before { background: linear-gradient(90deg, var(--adm-red), #f87171) }
 
 .adm-stat-icon { font-size: 28px; margin-bottom: 10px }
 .adm-stat-label { font-size: .78rem; color: var(--adm-muted); font-weight: 600; text-transform: uppercase; letter-spacing: .05em }
@@ -550,8 +551,8 @@ input{font-family:inherit}
   white-space: nowrap;
 }
 .adm-btn:disabled { opacity: .5; cursor: not-allowed }
-.adm-btn.primary { background: var(--adm-accent); color: #fff }
-.adm-btn.primary:hover { background: #4f46e5 }
+.adm-btn.primary { background: linear-gradient(135deg, var(--adm-accent), var(--adm-accent-2)); color: #fff; box-shadow: 0 4px 15px rgba(59,130,246,0.35) }
+.adm-btn.primary:hover { transform: translateY(-1px); box-shadow: 0 6px 20px rgba(59,130,246,0.5) }
 .adm-btn.warn { background: rgba(245,158,11,.15); color: #fbbf24; border: 1px solid rgba(245,158,11,.3) }
 .adm-btn.warn:hover { background: rgba(245,158,11,.25) }
 .adm-btn.danger { background: rgba(239,68,68,.12); color: #fca5a5; border: 1px solid rgba(239,68,68,.25) }
@@ -609,7 +610,13 @@ input{font-family:inherit}
   padding: 28px;
   box-shadow: 0 30px 80px rgba(0,0,0,.5);
   animation: rise .3s both;
+  max-height: 90vh;
+  overflow-y: auto;
 }
+.adm-modal::-webkit-scrollbar { width: 8px; }
+.adm-modal::-webkit-scrollbar-track { background: rgba(0,0,0,0.1); border-radius: 8px; }
+.adm-modal::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 8px; }
+.adm-modal::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.2); }
 .adm-modal.wide { max-width: 620px }
 .adm-modal-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px }
 .adm-modal-head h3 { font-size: 1.2rem; color: #fff }

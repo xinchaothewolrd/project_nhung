@@ -19,8 +19,8 @@ export default function AdminDashboard() {
         if (r.doctor_confirm) return false
         try { const ai = JSON.parse(r.ai_diagnosis); return ai.diagnosis !== 'NORMAL' } catch { return true }
       })
-      setStats({ users: users.length, devices: devices.length, records: records.length, pending: pending.length })
-      setRecentRecords([...records].reverse().slice(0, 6))
+      setStats({ users: users.length, devices: devices.length, records: records.length, pending: pending.length, allDevices: devices })
+      setRecentRecords([...records].reverse().slice(0, 5))
       setPatients(users.filter(u => u.role === 'PATIENT').slice(0, 6))
     } catch (e) { showToast('Lỗi tải dashboard: ' + e.message, 'err') }
     finally { setLoading(false) }
@@ -33,7 +33,7 @@ export default function AdminDashboard() {
       {/* Stats */}
       <div className="adm-stat-grid">
         <StatCard color="blue" icon="👥" label="Tổng người dùng" value={stats.users} sub="Bệnh nhân & bác sĩ" />
-        <StatCard color="green" icon="📡" label="Thiết bị đăng ký" value={stats.devices} sub="ESP32" />
+        <StatCard color="green" icon="📡" label="Thiết bị đăng ký" value={stats.devices} sub="ESP32 & các thiết bị" />
         <StatCard color="yellow" icon="📋" label="Hồ sơ sức khỏe" value={stats.records} sub="Tổng lần đo" />
         <StatCard color="red" icon="⏳" label="Chờ xác nhận" value={stats.pending} sub="Bác sĩ cần xem" />
       </div>
@@ -44,7 +44,7 @@ export default function AdminDashboard() {
           <div className="adm-card-head"><h3>🩺 Hồ sơ gần đây</h3></div>
           {recentRecords.length ? (
             <table className="adm-table">
-              <thead><tr><th>Bệnh nhân</th><th>BPM</th><th>SpO₂</th><th>Thời gian</th></tr></thead>
+              <thead><tr><th>BN</th><th>BPM</th><th>SpO₂</th><th>Thời gian</th></tr></thead>
               <tbody>
                 {recentRecords.map(r => (
                   <tr key={r.id}>
@@ -64,15 +64,18 @@ export default function AdminDashboard() {
           <div className="adm-card-head"><h3>👤 Bệnh nhân</h3></div>
           {patients.length ? (
             <table className="adm-table">
-              <thead><tr><th>Họ tên</th><th>Username</th><th>SĐT</th></tr></thead>
+              <thead><tr><th>Họ tên</th><th>SĐT</th><th>Thiết bị</th></tr></thead>
               <tbody>
-                {patients.map(u => (
-                  <tr key={u.id}>
-                    <td><b>{u.full_name || '—'}</b></td>
-                    <td><code style={{ color: '#93c5fd' }}>{u.username}</code></td>
-                    <td style={{ color: 'var(--adm-muted)' }}>{u.phone || '—'}</td>
-                  </tr>
-                ))}
+                {patients.map(u => {
+                  const devCount = stats.allDevices?.filter(d => d.patient_id === u.id).length || 0;
+                  return (
+                    <tr key={u.id}>
+                      <td><b>{u.full_name || u.username}</b></td>
+                      <td style={{ color: 'var(--adm-muted)' }}>{u.phone || '—'}</td>
+                      <td><span className="adm-badge green">{devCount} thiết bị</span></td>
+                    </tr>
+                  )
+                })}
               </tbody>
             </table>
           ) : <div className="adm-empty">👤 Chưa có bệnh nhân</div>}
